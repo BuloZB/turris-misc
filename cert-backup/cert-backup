@@ -29,10 +29,20 @@ set -ex
 
 PARTITION=/dev/mtdblock4
 WORKDIR=/tmp/certstore
+SUBVOL=certbackup
 
 mkdir -p "$WORKDIR"
 test -z "$(ls -A "$WORKDIR")"
-mount -t jffs2 "$PARTITION" "$WORKDIR"
+if [ -n "$(grep '/dev/mmcblk0p1 / btrfs' /proc/mounts)" ]; then
+	if [ -z "$(btrfs subvol list / | grep "path $SUBVOL")" ]; then
+		mount -t btrfs -o subvol=/ /dev/mmcblk0p1 "$WORKDIR"
+		btrfs subvolume create "$WORKDIR"/"$SUBVOL"
+		umount "$WORKDIR"
+	fi
+	mount -t btrfs -o subvol=/"$SUBVOL" /dev/mmcblk0p1 "$WORKDIR"
+else
+	mount -t jffs2 "$PARTITION" "$WORKDIR"
+fi
 while [ "$1" ] ; do
 	if [ "$1" = '-r' ] ; then
 		# It should be removed, if it exists
