@@ -31,10 +31,11 @@ PARTITION=/dev/mtdblock4
 WORKDIR=/tmp/certstore
 SUBVOL=certbackup
 
-mkdir -p "$WORKDIR"
+mkdir -p "$(dirname "$WORKDIR")"
+mkdir "$WORKDIR"
 test -z "$(ls -A "$WORKDIR")"
-if [ -n "$(grep '/dev/mmcblk0p1 / btrfs' /proc/mounts)" ]; then
-	if [ -z "$(btrfs subvol list / | grep "path $SUBVOL")" ]; then
+if grep -q '/dev/mmcblk0p1 / btrfs' /proc/mounts; then
+	if ! btrfs subvol list / | grep -q "path $SUBVOL"; then
 		mount -t btrfs -o subvol=/ /dev/mmcblk0p1 "$WORKDIR"
 		btrfs subvolume create "$WORKDIR"/"$SUBVOL"
 		umount "$WORKDIR"
@@ -62,4 +63,4 @@ while [ "$1" ] ; do
 	shift
 done
 umount "$WORKDIR"
-rm -r "$WORKDIR"
+rmdir "$WORKDIR"
