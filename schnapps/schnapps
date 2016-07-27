@@ -1,2 +1,9 @@
 config keep 'keep'
+	# Total maximum number of snapshots (after a cleanup)
         option max '15'
+	# Per-kind maximum. You don't have to list all of them and 0 is "keep everything"
+	option max_single 8
+	option max_pre 2
+	option max_post 2
+	option max_time 2
+	option max_rollback 4

@@ -21,7 +21,15 @@ LOCK="/tmp/schnapps.lock"
 ERR=0
 KEEP_MAX=""
 ROOT_DEV="/dev/mmcblk0p1"
-[ -z "`which uci`" ]    || KEEP_MAX="`uci get schnapps.keep.max 2> /dev/null`"
+KINDS="time rollback pre post single"
+
+if which uci >/dev/null 2>&1 ; then
+    KEEP_MAX=$(uci -q get schnapps.keep.max)
+    for i in $KINDS ; do
+        VAL=$(uci -q get schnapps.keep.max_$i)
+        eval "KEEP_MAX_$i=$VAL"
+    done
+fi
 [ \! -f /etc/schnapps ] || . /etc/schnapps
 [ -n "$KEEP_MAX" ]      || KEEP_MAX=0
 
@@ -344,11 +352,23 @@ cleanup() {
         fi
         LAST="$i"
     done
+    for kind in $KINDS ; do
+        # Compute the name of the variable on per-kind basis. Is there a more elegant way?
+        eval "MAX=\$KEEP_MAX_$kind"
+        if [ "$MAX" ] && [ "$MAX" -gt 0 ] ; then
+            echo
+            echo "Looking for old $kind snapshots..."
+            # Filter the list of snapshots and get rid of those that are too old in that bunch
+            list | grep "| $kind" | head -n "-$MAX" | while read snum rest ; do
+                delete "$snum" | sed 's|^|   - |'
+            done
+        fi
+    done
+    # Max total, after we removed the specific ones
     if [ "$KEEP_MAX" ] && [ "$KEEP_MAX" -gt 0 ]; then
         echo
-        KEEP_MAX="`expr $KEEP_MAX + 1`"
         echo "Looking for old snapshots..."
-        for i in `get_snap_numbers | sort -n -r | tail -n "+$KEEP_MAX"`; do
+        for i in `get_snap_numbers | head -n "-$KEEP_MAX"`; do
             delete "$i" | sed 's|^| - |'
         done
     fi
