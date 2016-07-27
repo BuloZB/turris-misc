@@ -151,11 +151,15 @@ table_separator() {
     echo ""
 }
 
+get_snap_numbers() {
+	btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n
+}
+
 list() {
     cd "$TMP_MNT_DIR"
     table_put "#" Type Date Description
     table_separator
-    for i in `btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n`; do
+    for i in `get_snap_numbers`; do
         CREATED="`btrfs subvolume show "$TMP_MNT_DIR"/@$i | sed -n 's|.*Creation time:[[:blank:]]*||p'`"
         DESCRIPTION=""
         TYPE="single"
@@ -165,7 +169,7 @@ list() {
 }
 
 get_next_number() {
-    NUMBER="`btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n | tail -n 1`"
+    NUMBER="`get_snap_numbers | tail -n 1`"
     if [ -n "$NUMBER" ]; then
         NUMBER="`expr $NUMBER + 1`"
     else
@@ -271,7 +275,7 @@ rollback() {
     fi
     if [ -z "$ROLL_TO" ]; then
         SKIP_TO=""
-        for i in `btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n -r` factory; do
+        for i in `get_snap_numbers | sort -n -r` factory; do
             if [ "$i" \!= factory ] && [ -n "$SKIP_TO" ] && [ "$i" -ge "$SKIP_TO" ]; then
                 continue
             fi
@@ -329,7 +333,7 @@ cleanup() {
     echo "This can take a while, please be patient."
     echo
     LAST=""
-    for i in `btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n`; do
+    for i in `get_snap_numbers`; do
         if [ -z "$LAST" ]; then
             LAST="$i"
             continue
@@ -344,7 +348,7 @@ cleanup() {
         echo
         KEEP_MAX="`expr $KEEP_MAX + 1`"
         echo "Looking for old snapshots..."
-        for i in `btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n -r | tail -n "+$KEEP_MAX"`; do
+        for i in `get_snap_numbers | sort -n -r | tail -n "+$KEEP_MAX"`; do
             delete "$i" | sed 's|^| - |'
         done
     fi
@@ -427,7 +431,7 @@ case $command in
             show_help
         else
             LAST="$1"
-            [ $# -gt 0 ]   || LAST="`btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n | tail -n 1`"
+            [ $# -gt 0 ]   || LAST="`get_snap_numbers | tail -n 1`"
             [ -n "$LAST" ] || LAST="factory"
             snp_status "$LAST" "$2"
         fi
@@ -445,7 +449,7 @@ case $command in
             show_help
         else
             LAST="$1"
-            [ $# -gt 0 ]   || LAST="`btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n | tail -n 1`"
+            [ $# -gt 0 ]   || LAST="`get_snap_numbers | tail -n 1`"
             [ -n "$LAST" ] || LAST="factory"
             snp_diff "$LAST" "$2"
         fi
